@@ -4,6 +4,7 @@
 #include "stdio.h"
 #include "iot_knob.h"
 #include "esp_log.h"
+#include "button_gpio.h"
 #include "iot_button.h"
 
 void EC11_init(void);

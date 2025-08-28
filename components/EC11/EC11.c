@@ -1,7 +1,8 @@
 #include "EC11.h"
 
 static const char* TAG = "EC11";
-knob_handle_t knob_handle = NULL;
+static knob_handle_t knob_handle = NULL;
+button_handle_t btn_handle = NULL;
 
 static void knob_cb(void *arg, void *data)
 {
@@ -28,6 +29,11 @@ static void knob_cb(void *arg, void *data)
     }
 }
 
+static void button_event_cb(void *arg, void *data)
+{
+    iot_button_print_event((button_handle_t)arg);
+}
+
 void knob_init(void)
 {
     knob_config_t cfg = {
@@ -43,10 +49,23 @@ void knob_init(void)
 
 void button_init(void)
 {
-    
+    button_config_t btn_cfg = {
+        .long_press_time = 65535,
+        .short_press_time = 150,
+    };
+    button_gpio_config_t io_cfg = {
+        .active_level = 0,
+        .disable_pull = 0,
+        .gpio_num = 21
+    };
+
+    iot_button_new_gpio_device(&btn_cfg, &io_cfg, &btn_handle);
+    // iot_button_register_cb(btn_handle, BUTTON_SINGLE_CLICK, NULL, button_event_cb, NULL);
+    // iot_button_register_cb(btn_handle, BUTTON_DOUBLE_CLICK, NULL, button_event_cb, NULL);
 }
 
 void EC11_init(void)
 {
-
+    // knob_init();
+    button_init();
 }
