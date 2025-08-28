@@ -1,16 +1,20 @@
 #include <stdio.h>
 #include "UIControl.h"
 
-static const char* TAG = "UI";
+extern lv_obj_t *highlight_frame;
+extern lv_anim_t focus_anim;
+extern void focus_event_cb(lv_event_t *e);
+
+static const char *TAG = "UI";
 static lv_display_t *disp = NULL;
 static lv_indev_t *indev = NULL;
-static lv_group_t *group = NULL;
+lv_group_t *group = NULL;
 
 static lv_obj_t *voltage_label = NULL;
 static lv_obj_t *current_label = NULL;
 static lv_obj_t *power_value_label = NULL;
-static lv_obj_t *spinbox = NULL;
-static lv_obj_t *spinbox1 = NULL;
+lv_obj_t *spinbox = NULL;
+lv_obj_t *spinbox1 = NULL;
 
 void home_page_init(void)
 {
@@ -75,8 +79,7 @@ void home_page_init(void)
 
         lv_obj_set_size(spinbox, 32, 10);
 
-        lv_obj_set_style_outline_color(spinbox, lv_color_black(), LV_STATE_FOCUS_KEY);
-        lv_obj_set_style_outline_color(spinbox, lv_color_black(), LV_STATE_EDITED);
+        lv_obj_set_style_outline_opa(spinbox, 0, LV_STATE_FOCUS_KEY);
 
         lv_obj_set_style_bg_color(spinbox, lv_color_black(), LV_PART_CURSOR | LV_STATE_EDITED);
         lv_obj_set_style_text_color(spinbox, lv_color_white(), LV_PART_CURSOR | LV_STATE_EDITED);
@@ -101,8 +104,8 @@ void home_page_init(void)
 
         lv_obj_set_size(spinbox1, 26, 10);
 
-        lv_obj_set_style_outline_color(spinbox1, lv_color_black(), LV_STATE_FOCUS_KEY);
-        lv_obj_set_style_outline_color(spinbox1, lv_color_black(), LV_STATE_EDITED);
+        lv_obj_set_style_outline_opa(spinbox1, 0, LV_STATE_FOCUS_KEY);
+
         lv_obj_set_style_bg_color(spinbox1, lv_color_black(), LV_PART_CURSOR | LV_STATE_EDITED);
         lv_obj_set_style_text_color(spinbox1, lv_color_white(), LV_PART_CURSOR | LV_STATE_EDITED);
         lv_obj_set_style_text_color(spinbox1, lv_color_black(), LV_PART_CURSOR);
@@ -111,6 +114,28 @@ void home_page_init(void)
 
         lv_obj_align(spinbox1, LV_ALIGN_TOP_RIGHT, -9, 18);
         lv_group_add_obj(group, spinbox1);
+
+        // 创建焦点高亮框
+        highlight_frame = lv_obj_create(lv_screen_active());
+        lv_obj_set_size(highlight_frame, 35, 14);
+        lv_obj_align(highlight_frame, LV_ALIGN_TOP_LEFT, 34, 16);
+        
+        // 设置高亮框样式
+        lv_obj_set_style_bg_opa(highlight_frame, LV_OPA_TRANSP, 0); // 背景透明，不遮挡内容
+        lv_obj_set_style_border_width(highlight_frame, 1, 0);
+        lv_obj_set_style_border_color(highlight_frame, lv_color_black(), 0); // 黑色边框，适合白色背景
+        lv_obj_set_style_border_opa(highlight_frame, LV_OPA_80, 0);
+        lv_obj_set_style_radius(highlight_frame, 4, 0); // 增加圆角
+        lv_obj_set_style_pad_all(highlight_frame, 0, 0);
+        
+        // 设置高亮框不可点击，避免干扰交互，并移到后层避免遮挡
+        lv_obj_add_flag(highlight_frame, LV_OBJ_FLAG_FLOATING);
+        lv_obj_clear_flag(highlight_frame, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_move_to_index(highlight_frame, 0); // 移到最底层
+        
+        // 为spinbox控件添加焦点事件
+        lv_obj_add_event_cb(spinbox, focus_event_cb, LV_EVENT_FOCUSED, NULL);
+        lv_obj_add_event_cb(spinbox1, focus_event_cb, LV_EVENT_FOCUSED, NULL);
 
         lvgl_port_unlock();
     }
