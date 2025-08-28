@@ -29,7 +29,6 @@ void home_page_init(void)
     }
 }
 
-
 void UI_HW_Init(void)
 {
     spi_bus_config_t bus_cfg = {
