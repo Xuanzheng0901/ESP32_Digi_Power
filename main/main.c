@@ -11,8 +11,8 @@
 
 void app_main(void)
 {
-    EC11_init();
-    // UI_Init();
+    // EC11_init();3
+    UI_Init();
     // pwm_init();
     // console_init();
     
