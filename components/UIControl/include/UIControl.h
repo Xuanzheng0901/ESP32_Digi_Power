@@ -7,6 +7,9 @@
 #include "driver/spi_master.h"
 #include "lvgl.h"
 #include "esp_lcd_panel_vendor.h"
+#include "iot_button.h"
+#include "button_gpio.h"
+#include "iot_knob.h"
 #include "esp_lvgl_port.h"
 
 #include "esp_log.h"

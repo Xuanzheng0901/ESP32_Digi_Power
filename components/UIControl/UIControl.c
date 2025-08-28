@@ -2,31 +2,145 @@
 #include "UIControl.h"
 
 static const char* TAG = "UI";
+static lv_display_t *disp = NULL;
+static lv_indev_t *indev = NULL;
+static lv_group_t *group = NULL;
+
+static lv_obj_t *voltage_label = NULL;
+static lv_obj_t *current_label = NULL;
+static lv_obj_t *power_value_label = NULL;
+static lv_obj_t *spinbox = NULL;
+static lv_obj_t *spinbox1 = NULL;
 
 void home_page_init(void)
 {
-    static char buf[64] = "Hello World";
     if (lvgl_port_lock(0))
     {
-        lv_obj_t *voltage_label = lv_label_create(lv_screen_active());
-        lv_label_set_text(voltage_label, "电压:12.51V");
-        lv_obj_set_width(voltage_label, 128);
-        lv_obj_set_style_text_align(voltage_label, LV_TEXT_ALIGN_LEFT, 0);
-        lv_obj_align(voltage_label, LV_ALIGN_TOP_LEFT, 0, 0);
+        lv_obj_t *label1 = lv_label_create(lv_screen_active());
+        lv_label_set_text(label1, "电压(V)  电流(A)");
+        lv_obj_set_width(label1, 128);
+        lv_obj_set_style_text_align(label1, LV_TEXT_ALIGN_RIGHT, 0);
+        lv_obj_align(label1, LV_ALIGN_TOP_LEFT, 0, 0);
 
-        lv_obj_t *current_label = lv_label_create(lv_screen_active());
-        lv_label_set_text(current_label, "电流:1.22A");
-        lv_obj_set_width(current_label, 128);
-        lv_obj_set_style_text_align(current_label, LV_TEXT_ALIGN_RIGHT, 0);
-        lv_obj_align(current_label, LV_ALIGN_TOP_LEFT, 0, 0);
+        lv_obj_t *label2 = lv_label_create(lv_screen_active());
+        lv_label_set_text(label2, "设定");
+        lv_obj_set_width(label2, 24);
+        lv_obj_set_style_text_align(label2, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(label2, LV_ALIGN_TOP_LEFT, 0, 16);
+
+        lv_obj_t *label3 = lv_label_create(lv_screen_active());
+        lv_label_set_text(label3, "实际");
+        lv_obj_set_width(label3, 24);
+        lv_obj_set_style_text_align(label3, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(label3, LV_ALIGN_TOP_LEFT, 0, 31);
+
+        // 电压数值
+        voltage_label = lv_label_create(lv_screen_active());
+        lv_label_set_text(voltage_label, "12.05");
+        lv_obj_set_width(voltage_label, 30);
+        lv_obj_set_style_text_align(voltage_label, LV_TEXT_ALIGN_RIGHT, 0);
+        lv_obj_align(voltage_label, LV_ALIGN_TOP_LEFT, 37, 32);
+
+        //电流数值
+        current_label = lv_label_create(lv_screen_active());
+        lv_label_set_text(current_label, "1.28");
+        lv_obj_set_width(current_label, 24);
+        lv_obj_set_style_text_align(current_label, LV_TEXT_ALIGN_LEFT, 0);
+        lv_obj_align(current_label, LV_ALIGN_TOP_LEFT, 94, 32);
 
         lv_obj_t *power_label = lv_label_create(lv_screen_active());
-        lv_label_set_text(power_label, "功率:100.55W");
-        lv_obj_set_width(power_label, 128);
+        lv_label_set_text(power_label, "功率");
+        lv_obj_set_width(power_label, 42);
         lv_obj_set_style_text_align(power_label, LV_TEXT_ALIGN_LEFT, 0);
-        lv_obj_align(power_label, LV_ALIGN_TOP_LEFT, 0, 13);
+        lv_obj_align(power_label, LV_ALIGN_TOP_LEFT, 0, 47);
+
+        //功率数值
+        power_value_label = lv_label_create(lv_screen_active());
+        lv_label_set_text(power_value_label, "100.00W");
+        lv_obj_set_width(power_value_label, 42);
+        lv_obj_set_style_text_align(power_value_label, LV_TEXT_ALIGN_LEFT, 0);
+        lv_obj_align(power_value_label, LV_ALIGN_TOP_LEFT, 31, 47);
+
+
+        //电压调整框
+        spinbox = lv_spinbox_create(lv_screen_active());
+        lv_spinbox_set_range(spinbox, 0, 2400);
+        lv_spinbox_set_digit_format(spinbox, 4, 2);
+        lv_spinbox_set_step(spinbox, 1);
+
+        lv_obj_set_content_height(spinbox, 12);
+
+        lv_obj_set_style_pad_all(spinbox, -1, 0);
+        lv_obj_set_style_border_width(spinbox, 0, 0);
+
+        lv_obj_set_size(spinbox, 32, 10);
+
+        lv_obj_set_style_outline_color(spinbox, lv_color_black(), LV_STATE_FOCUS_KEY);
+        lv_obj_set_style_outline_color(spinbox, lv_color_black(), LV_STATE_EDITED);
+
+        lv_obj_set_style_bg_color(spinbox, lv_color_black(), LV_PART_CURSOR | LV_STATE_EDITED);
+        lv_obj_set_style_text_color(spinbox, lv_color_white(), LV_PART_CURSOR | LV_STATE_EDITED);
+        lv_obj_set_style_text_color(spinbox, lv_color_black(), LV_PART_CURSOR);
+
+        lv_obj_set_style_text_align(spinbox, LV_TEXT_ALIGN_CENTER, 0);
+
+        lv_obj_align(spinbox, LV_ALIGN_TOP_LEFT, 36, 18);
+        lv_group_add_obj(group, spinbox);
+
+
+        //电流调整框
+        spinbox1 = lv_spinbox_create(lv_screen_active());
+        lv_spinbox_set_range(spinbox1, 0, 2400);
+        lv_spinbox_set_digit_format(spinbox1, 3, 1);
+        lv_spinbox_set_step(spinbox1, 1);
+
+        lv_obj_set_content_height(spinbox1, 12);
+
+        lv_obj_set_style_pad_all(spinbox1, -1, 0);
+        lv_obj_set_style_border_width(spinbox1, 0, 0);
+
+        lv_obj_set_size(spinbox1, 26, 10);
+
+        lv_obj_set_style_outline_color(spinbox1, lv_color_black(), LV_STATE_FOCUS_KEY);
+        lv_obj_set_style_outline_color(spinbox1, lv_color_black(), LV_STATE_EDITED);
+        lv_obj_set_style_bg_color(spinbox1, lv_color_black(), LV_PART_CURSOR | LV_STATE_EDITED);
+        lv_obj_set_style_text_color(spinbox1, lv_color_white(), LV_PART_CURSOR | LV_STATE_EDITED);
+        lv_obj_set_style_text_color(spinbox1, lv_color_black(), LV_PART_CURSOR);
+
+        lv_obj_set_style_text_align(spinbox1, LV_TEXT_ALIGN_CENTER, 0);
+
+        lv_obj_align(spinbox1, LV_ALIGN_TOP_RIGHT, -9, 18);
+        lv_group_add_obj(group, spinbox1);
+
         lvgl_port_unlock();
     }
+}
+
+void indev_init(void)
+{
+    button_handle_t btn_handle = NULL;
+    button_config_t btn_cfg = {0};
+    button_gpio_config_t io_cfg = {
+        .active_level = 0,
+        .disable_pull = 0,
+        .gpio_num = 21
+    };
+    iot_button_new_gpio_device(&btn_cfg, &io_cfg, &btn_handle);
+
+    knob_config_t knob_cfg = {
+        .default_direction = 0,
+        .gpio_encoder_a = 0,
+        .gpio_encoder_b = 2
+    };
+    lvgl_port_encoder_cfg_t cfg = {
+        .disp = disp,
+        .encoder_a_b = &knob_cfg,
+        .encoder_enter = btn_handle
+    };
+
+    indev = lvgl_port_add_encoder(&cfg);
+    group = lv_group_create();
+    lv_indev_set_group(indev, group);
 }
 
 void UI_HW_Init(void)
@@ -47,7 +161,7 @@ void UI_HW_Init(void)
         .dc_gpio_num = 12,
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
-        .pclk_hz = 1000000,
+        .pclk_hz = 500000,
         .trans_queue_depth = 32,
         .spi_mode = 0,
         .flags = {
@@ -94,14 +208,15 @@ void UI_HW_Init(void)
             .swap_xy = false,
             .mirror_x = true,
             .mirror_y = true,
-        }};
-    // lv_disp_t *disp =
-    lvgl_port_add_disp(&disp_cfg);
+        }
+    };
+    disp = lvgl_port_add_disp(&disp_cfg);
     
 }
 
 void UI_Init(void)
 {
     UI_HW_Init();
+    indev_init();
     home_page_init();
 }
