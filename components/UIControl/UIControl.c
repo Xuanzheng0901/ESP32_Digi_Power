@@ -147,15 +147,15 @@ void indev_init(void)
     button_config_t btn_cfg = {0};
     button_gpio_config_t io_cfg = {
         .active_level = 0,
-        .disable_pull = 0,
-        .gpio_num = 21
+        .disable_pull = false,
+        .gpio_num = BTN_IO
     };
     iot_button_new_gpio_device(&btn_cfg, &io_cfg, &btn_handle);
 
     knob_config_t knob_cfg = {
         .default_direction = 0,
-        .gpio_encoder_a = 0,
-        .gpio_encoder_b = 2
+        .gpio_encoder_a = KNOB_A,
+        .gpio_encoder_b = KNOB_B
     };
     lvgl_port_encoder_cfg_t cfg = {
         .disp = disp,
@@ -171,8 +171,8 @@ void indev_init(void)
 void UI_HW_Init(void)
 {
     spi_bus_config_t bus_cfg = {
-        .mosi_io_num = 10,
-        .sclk_io_num = 9,
+        .mosi_io_num = OLED_SDA,
+        .sclk_io_num = OLED_SCL,
         .data1_io_num = -1,
         .data2_io_num = -1,
         .data3_io_num = -1,
@@ -182,8 +182,8 @@ void UI_HW_Init(void)
     
     esp_lcd_panel_io_handle_t io_handle = NULL;
     esp_lcd_panel_io_spi_config_t io_cfg = {
-        .cs_gpio_num = 13,
-        .dc_gpio_num = 12,
+        .cs_gpio_num = OLED_CS,
+        .dc_gpio_num = OLED_DC,
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
         .pclk_hz = 500000,
@@ -204,7 +204,7 @@ void UI_HW_Init(void)
     esp_lcd_panel_handle_t panel_handle = NULL;
     esp_lcd_panel_dev_config_t panel_config = {
         .bits_per_pixel = 1,
-        .reset_gpio_num = 11,
+        .reset_gpio_num = OLED_RST,
     };
     esp_lcd_panel_ssd1306_config_t ssd1306_config = {
         .height = 64,

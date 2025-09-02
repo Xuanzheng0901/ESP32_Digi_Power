@@ -12,6 +12,16 @@
 #include "esp_log.h"
 #include "stdio.h"
 
+#define OLED_SCL 13
+#define OLED_SDA 14
+#define OLED_RST 21
+#define OLED_DC  47
+#define OLED_CS  48
+
+#define KNOB_A   1
+#define KNOB_B   2
+#define BTN_IO   0
+
 // 动画配置结构
 typedef struct
 {
