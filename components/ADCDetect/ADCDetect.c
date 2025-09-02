@@ -17,31 +17,57 @@ static void ADS1115_write(uint8_t addr, uint16_t data)
     i2c_master_transmit(dev_handle, buffer, 3, 10);
 }
 
-void ADS1115_read_channel(uint8_t channel, int16_t* value)
+static void _ADS1115_read_channel(uint8_t channel)
 {
-    uint16_t buf_cfg = ADS1115_CONFIG_DEFAULT & (uint16_t)0x8FFF;
-    switch (channel)
+    static uint8_t last_read_channel = 1;
+    if(channel != last_read_channel)
     {
-    case 0:
-        buf_cfg |= ADS1115_MUX_SINGLE_0;
-        break;
-    case 1:
-        buf_cfg |= ADS1115_MUX_SINGLE_1;
-        break;
-    default:
-        break;
+        uint16_t buf_cfg = ADS1115_CONFIG_DEFAULT & (uint16_t)0x8FFF;
+        switch (channel)
+        {
+        case 0:
+            buf_cfg |= ADS1115_MUX_SINGLE_0;
+            break;
+        case 1:
+            buf_cfg |= ADS1115_MUX_SINGLE_1;
+            break;
+        default:
+            break;
+        }
+        ADS1115_write(0x01, buf_cfg);
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
-    ADS1115_write(0x01, buf_cfg);
-    vTaskDelay(pdMS_TO_TICKS(10));
 
     static uint8_t read_buf[2];
     uint8_t addr = 0;
-    i2c_master_transmit_receive(dev_handle, &addr, 1, read_buf, 2, 10);
-    vTaskDelay(pdMS_TO_TICKS(10));
+    if(pdPASS != i2c_master_transmit_receive(dev_handle, &addr, 1, read_buf, 2, 10))
+        return;
+    vTaskDelay(pdMS_TO_TICKS(1));
 
-    *value = read_buf[0];
-    *value = *value << 8;
-    *value |= read_buf[1];
+    uint16_t value;
+    value = read_buf[0];
+    value = value << 8;
+    value |= read_buf[1];
+    ADS1115_raw[channel] = value;
+
+    last_read_channel = channel;
+}
+
+static void ADS1115_read_task(void* arg)
+{
+    static bool channel = 0;
+    while(1)
+    {
+        _ADS1115_read_channel(channel);
+        channel = !channel;
+        _ADS1115_read_channel(channel);
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+int16_t ADS1115_read_channel(uint8_t channel)
+{
+    return ADS1115_raw[channel];
 }
 
 void ADS1115_Init(void)

@@ -16,7 +16,6 @@
 #define ADS1115_SCL 18
 
 void ADS1115_Init(void);
-void ADS1115_read_channel(uint8_t channel, int16_t* value);
-
+int16_t ADS1115_read_channel(uint8_t channel);
 
 #endif
