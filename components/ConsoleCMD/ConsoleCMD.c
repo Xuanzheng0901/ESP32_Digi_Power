@@ -62,7 +62,7 @@ static void process_command(char* cmd)
         // {
         //     duty = (uint32_t)((value - 0.6504) / 0.0088);
         // }
-        set_pwm_duty(duty);
+        set_pwm_duty(VSET_CHN, duty);
     }
     else if (strcmp(command, "help") == 0)
     {
