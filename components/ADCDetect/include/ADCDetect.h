@@ -10,12 +10,12 @@
 
 #define ADS1115_CONFIG_DEFAULT                                             \
     (ADS1115_OS_START_SINGLE | ADS1115_MUX_SINGLE_0 | ADS1115_PGA_4_096V | \
-     ADS1115_MODE_CONTINUOUS | ADS1115_DR_250SPS | ADS1115_COMP_QUE_DISABLE)
+     ADS1115_MODE_SINGLE_SHOT | ADS1115_DR_250SPS | ADS1115_COMP_QUE_DISABLE)
 
 #define ADS1115_SDA 17
 #define ADS1115_SCL 18
 
 void ADS1115_Init(void);
-int16_t ADS1115_read_channel(uint8_t channel);
+double ADS1115_read_channel(uint8_t channel);
 
 #endif
