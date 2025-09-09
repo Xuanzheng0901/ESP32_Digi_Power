@@ -12,6 +12,8 @@ void app_main(void)
 {
     ADS1115_Init();
     pwm_init();
-    pid_ctrl_init();
+    
     UI_Init();
+    pid_ctrl_init();
+    // console_init();
 }
