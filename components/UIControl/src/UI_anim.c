@@ -1,8 +1,8 @@
 #include "UIControl.h"
 
 extern lv_group_t *group;
-extern lv_obj_t *spinbox;
-extern lv_obj_t *spinbox1;
+extern lv_obj_t *voltage_spinbox;
+extern lv_obj_t *current_spinbox;
 
 // 焦点切换动画相关
 lv_obj_t *highlight_frame = NULL;
@@ -40,12 +40,12 @@ static void focus_sync_anim_exec_cb(void *var, int32_t v)
         initial_width = lv_obj_get_width(frame);
         initial_x = lv_obj_get_x(frame);
 
-        if (focused_obj == spinbox)
+        if (focused_obj == voltage_spinbox)
         {
             target_x = anim_config.spinbox_x;
             target_width = anim_config.spinbox_width;
         }
-        else if (focused_obj == spinbox1)
+        else if (focused_obj == current_spinbox)
         {
             target_x = anim_config.spinbox1_x;
             target_width = anim_config.spinbox1_width;
@@ -54,12 +54,12 @@ static void focus_sync_anim_exec_cb(void *var, int32_t v)
 
     // 计算当前位置
     lv_coord_t current_x;
-    if (focused_obj == spinbox && initial_x > target_x)
+    if (focused_obj == voltage_spinbox && initial_x > target_x)
     {
         // 从右向左收缩
         current_x = target_x + (initial_width - v);
     }
-    else if (focused_obj == spinbox1 && initial_x < target_x)
+    else if (focused_obj == current_spinbox && initial_x < target_x)
     {
         // 从左向右收缩
         float progress = (float)(initial_width - v) / (initial_width - target_width);
@@ -112,12 +112,12 @@ static void start_focus_animation(lv_anim_exec_xcb_t exec_cb, lv_coord_t from_va
 // 获取目标控件配置
 static void get_target_config(lv_obj_t *obj, lv_coord_t *target_x, lv_coord_t *target_width)
 {
-    if (obj == spinbox)
+    if (obj == voltage_spinbox)
     {
         *target_x = anim_config.spinbox_x;
         *target_width = anim_config.spinbox_width;
     }
-    else if (obj == spinbox1)
+    else if (obj == current_spinbox)
     {
         *target_x = anim_config.spinbox1_x;
         *target_width = anim_config.spinbox1_width;
@@ -139,8 +139,8 @@ static void focus_anim_ready_cb(lv_anim_t *a)
         lv_coord_t current_width = lv_obj_get_width(highlight_frame);
 
         // 判断是否需要同步位置宽度动画
-        bool need_sync_anim = (focused_obj == spinbox && current_x < target_x) ||
-                              (focused_obj == spinbox1 && current_x < target_x);
+        bool need_sync_anim = (focused_obj == voltage_spinbox && current_x < target_x) ||
+                              (focused_obj == current_spinbox && current_x < target_x);
 
         if (need_sync_anim)
         {
@@ -192,13 +192,13 @@ void focus_event_cb(lv_event_t *e)
         lv_coord_t expand_width = current_width;
         lv_anim_exec_xcb_t expand_callback = focus_anim_exec_cb; // 默认向右扩展
 
-        if (obj == spinbox && current_x > target_x)
+        if (obj == voltage_spinbox && current_x > target_x)
         {
             // 从右向左切换：向左扩展
             expand_width = current_x - target_x + current_width;
             expand_callback = focus_expand_left_exec_cb;
         }
-        else if (obj == spinbox1 && current_x < target_x)
+        else if (obj == current_spinbox && current_x < target_x)
         {
             // 从左向右切换：向右扩展
             expand_width = target_x - current_x + target_width;

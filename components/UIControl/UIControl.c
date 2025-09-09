@@ -5,6 +5,8 @@ extern lv_obj_t *highlight_frame;
 extern lv_anim_t focus_anim;
 extern void focus_event_cb(lv_event_t *e);
 
+EventGroupHandle_t BootGroup = NULL;
+
 static const char *TAG = "UI";
 static lv_display_t *disp = NULL;
 static lv_indev_t *indev = NULL;
@@ -13,10 +15,50 @@ lv_group_t *group = NULL;
 static lv_obj_t *voltage_label = NULL;
 static lv_obj_t *current_label = NULL;
 static lv_obj_t *power_value_label = NULL;
-lv_obj_t *spinbox = NULL;
-lv_obj_t *spinbox1 = NULL;
+lv_obj_t *voltage_spinbox = NULL;
+lv_obj_t *current_spinbox = NULL;
 
-void home_page_init(void)
+static char value_buf[3][32] = {0};
+
+void set_current(uint32_t mA)
+{
+    uint32_t duty = (uint32_t)((double)mA / 1000.0 * 0.005 * 50.0 + 0.625) / 3.3 * 2048.0;
+    set_pwm_duty(ISET_CHN, duty);
+}
+
+static void lvgl_event_cb(lv_event_t *evt)
+{
+    int32_t value = lv_spinbox_get_value(lv_event_get_current_target(evt));
+    ESP_LOGI(TAG, "Value changed: %ld", value);
+    if (lv_event_get_current_target(evt) == voltage_spinbox)
+        pid_set_voltage(value * 10);
+    else
+        set_current(value * 10);
+} 
+
+static void value_update_task(void* arg)
+{
+    while(1)
+    {
+        double voltage = ADS1115_read_channel(0);
+        double current = ADS1115_read_channel(1);
+        snprintf(value_buf[0], 6, "%5.2lf", voltage);
+        snprintf(value_buf[1], 5, "%4.2lf", current);
+        snprintf(value_buf[2], 8, "%6.2lfW", voltage * current);
+
+        if(lvgl_port_lock(0))
+        {
+            lv_label_set_text_static(voltage_label, value_buf[0]);
+            lv_label_set_text_static(current_label, value_buf[1]);
+            lv_label_set_text_static(power_value_label, value_buf[2]);
+            lvgl_port_unlock();
+        }
+        
+        vTaskDelay(100);
+    }
+}
+
+static void home_page_init(void)
 {
     if (lvgl_port_lock(0))
     {
@@ -40,14 +82,14 @@ void home_page_init(void)
 
         // 电压数值
         voltage_label = lv_label_create(lv_screen_active());
-        lv_label_set_text(voltage_label, "12.05");
+        lv_label_set_text_static(voltage_label, value_buf[0]);
         lv_obj_set_width(voltage_label, 30);
         lv_obj_set_style_text_align(voltage_label, LV_TEXT_ALIGN_RIGHT, 0);
         lv_obj_align(voltage_label, LV_ALIGN_TOP_LEFT, 37, 32);
 
         //电流数值
         current_label = lv_label_create(lv_screen_active());
-        lv_label_set_text(current_label, "1.28");
+        lv_label_set_text_static(current_label, value_buf[1]);
         lv_obj_set_width(current_label, 24);
         lv_obj_set_style_text_align(current_label, LV_TEXT_ALIGN_LEFT, 0);
         lv_obj_align(current_label, LV_ALIGN_TOP_LEFT, 94, 32);
@@ -60,60 +102,62 @@ void home_page_init(void)
 
         //功率数值
         power_value_label = lv_label_create(lv_screen_active());
-        lv_label_set_text(power_value_label, "100.00W");
+        lv_label_set_text(power_value_label, value_buf[2]);
         lv_obj_set_width(power_value_label, 42);
         lv_obj_set_style_text_align(power_value_label, LV_TEXT_ALIGN_LEFT, 0);
         lv_obj_align(power_value_label, LV_ALIGN_TOP_LEFT, 31, 47);
 
 
         //电压调整框
-        spinbox = lv_spinbox_create(lv_screen_active());
-        lv_spinbox_set_range(spinbox, 0, 2400);
-        lv_spinbox_set_digit_format(spinbox, 4, 2);
-        lv_spinbox_set_step(spinbox, 1);
+        voltage_spinbox = lv_spinbox_create(lv_screen_active());
+        lv_spinbox_set_range(voltage_spinbox, 0, 2400);
+        lv_spinbox_set_digit_format(voltage_spinbox, 4, 2);
+        lv_spinbox_set_step(voltage_spinbox, 1);
 
-        lv_obj_set_content_height(spinbox, 12);
+        lv_obj_set_content_height(voltage_spinbox, 12);
 
-        lv_obj_set_style_pad_all(spinbox, -1, 0);
-        lv_obj_set_style_border_width(spinbox, 0, 0);
+        lv_obj_set_style_pad_all(voltage_spinbox, -1, 0);
+        lv_obj_set_style_border_width(voltage_spinbox, 0, 0);
 
-        lv_obj_set_size(spinbox, 32, 10);
+        lv_obj_set_size(voltage_spinbox, 32, 10);
 
-        lv_obj_set_style_outline_opa(spinbox, 0, LV_STATE_FOCUS_KEY);
+        lv_obj_set_style_outline_opa(voltage_spinbox, 0, LV_STATE_FOCUS_KEY);
 
-        lv_obj_set_style_bg_color(spinbox, lv_color_black(), LV_PART_CURSOR | LV_STATE_EDITED);
-        lv_obj_set_style_text_color(spinbox, lv_color_white(), LV_PART_CURSOR | LV_STATE_EDITED);
-        lv_obj_set_style_text_color(spinbox, lv_color_black(), LV_PART_CURSOR);
+        lv_obj_set_style_bg_color(voltage_spinbox, lv_color_black(), LV_PART_CURSOR | LV_STATE_EDITED);
+        lv_obj_set_style_text_color(voltage_spinbox, lv_color_white(), LV_PART_CURSOR | LV_STATE_EDITED);
+        lv_obj_set_style_text_color(voltage_spinbox, lv_color_black(), LV_PART_CURSOR);
 
-        lv_obj_set_style_text_align(spinbox, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_style_text_align(voltage_spinbox, LV_TEXT_ALIGN_CENTER, 0);
 
-        lv_obj_align(spinbox, LV_ALIGN_TOP_LEFT, 36, 18);
-        lv_group_add_obj(group, spinbox);
+        lv_obj_align(voltage_spinbox, LV_ALIGN_TOP_LEFT, 36, 18);
+        lv_group_add_obj(group, voltage_spinbox);
+        lv_obj_add_event_cb(voltage_spinbox, lvgl_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
 
         //电流调整框
-        spinbox1 = lv_spinbox_create(lv_screen_active());
-        lv_spinbox_set_range(spinbox1, 0, 2400);
-        lv_spinbox_set_digit_format(spinbox1, 3, 1);
-        lv_spinbox_set_step(spinbox1, 1);
+        current_spinbox = lv_spinbox_create(lv_screen_active());
+        lv_spinbox_set_range(current_spinbox, 0, 2400);
+        lv_spinbox_set_digit_format(current_spinbox, 3, 1);
+        lv_spinbox_set_step(current_spinbox, 1);
 
-        lv_obj_set_content_height(spinbox1, 12);
+        lv_obj_set_content_height(current_spinbox, 12);
 
-        lv_obj_set_style_pad_all(spinbox1, -1, 0);
-        lv_obj_set_style_border_width(spinbox1, 0, 0);
+        lv_obj_set_style_pad_all(current_spinbox, -1, 0);
+        lv_obj_set_style_border_width(current_spinbox, 0, 0);
 
-        lv_obj_set_size(spinbox1, 26, 10);
+        lv_obj_set_size(current_spinbox, 26, 10);
 
-        lv_obj_set_style_outline_opa(spinbox1, 0, LV_STATE_FOCUS_KEY);
+        lv_obj_set_style_outline_opa(current_spinbox, 0, LV_STATE_FOCUS_KEY);
 
-        lv_obj_set_style_bg_color(spinbox1, lv_color_black(), LV_PART_CURSOR | LV_STATE_EDITED);
-        lv_obj_set_style_text_color(spinbox1, lv_color_white(), LV_PART_CURSOR | LV_STATE_EDITED);
-        lv_obj_set_style_text_color(spinbox1, lv_color_black(), LV_PART_CURSOR);
+        lv_obj_set_style_bg_color(current_spinbox, lv_color_black(), LV_PART_CURSOR | LV_STATE_EDITED);
+        lv_obj_set_style_text_color(current_spinbox, lv_color_white(), LV_PART_CURSOR | LV_STATE_EDITED);
+        lv_obj_set_style_text_color(current_spinbox, lv_color_black(), LV_PART_CURSOR);
 
-        lv_obj_set_style_text_align(spinbox1, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_style_text_align(current_spinbox, LV_TEXT_ALIGN_CENTER, 0);
 
-        lv_obj_align(spinbox1, LV_ALIGN_TOP_RIGHT, -9, 18);
-        lv_group_add_obj(group, spinbox1);
+        lv_obj_align(current_spinbox, LV_ALIGN_TOP_RIGHT, -9, 18);
+        lv_group_add_obj(group, current_spinbox);
+        lv_obj_add_event_cb(current_spinbox, lvgl_event_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
         // 创建焦点高亮框
         highlight_frame = lv_obj_create(lv_screen_active());
@@ -134,8 +178,8 @@ void home_page_init(void)
         lv_obj_move_to_index(highlight_frame, 0); // 移到最底层
         
         // 为spinbox控件添加焦点事件
-        lv_obj_add_event_cb(spinbox, focus_event_cb, LV_EVENT_FOCUSED, NULL);
-        lv_obj_add_event_cb(spinbox1, focus_event_cb, LV_EVENT_FOCUSED, NULL);
+        lv_obj_add_event_cb(voltage_spinbox, focus_event_cb, LV_EVENT_FOCUSED, NULL);
+        lv_obj_add_event_cb(current_spinbox, focus_event_cb, LV_EVENT_FOCUSED, NULL);
 
         lvgl_port_unlock();
     }
@@ -206,6 +250,35 @@ void UI_HW_Init(void)
         .bits_per_pixel = 1,
         .reset_gpio_num = OLED_RST,
     };
+    // i2c_master_bus_handle_t i2c_bus = NULL;
+    // i2c_master_bus_config_t bus_config = {
+    //     .clk_source = I2C_CLK_SRC_DEFAULT,
+    //     .glitch_ignore_cnt = 7,
+    //     .i2c_port = I2C_NUM_0,
+    //     .sda_io_num = 14,
+    //     .scl_io_num = 13,
+    //     .flags.enable_internal_pullup = true,
+    // };
+    // i2c_new_master_bus(&bus_config, &i2c_bus);
+
+    // ESP_LOGI(TAG, "Install panel IO");
+    // esp_lcd_panel_io_handle_t io_handle = NULL;
+    // esp_lcd_panel_io_i2c_config_t io_config = {
+    //     .dev_addr = 0x3C,
+    //     .scl_speed_hz = 400 * 1000,
+    //     .control_phase_bytes = 1,
+    //     .lcd_cmd_bits = 8,
+    //     .lcd_param_bits = 8,
+    //     .dc_bit_offset = 6,
+    // };
+    // esp_lcd_new_panel_io_i2c(i2c_bus, &io_config, &io_handle);
+
+    // ESP_LOGI(TAG, "Install SSD1306 panel driver");
+    // esp_lcd_panel_handle_t panel_handle = NULL;
+    // esp_lcd_panel_dev_config_t panel_config = {
+    //     .bits_per_pixel = 1,
+    //     .reset_gpio_num = -1,
+    // };
     esp_lcd_panel_ssd1306_config_t ssd1306_config = {
         .height = 64,
     };
@@ -239,9 +312,35 @@ void UI_HW_Init(void)
     
 }
 
+void ui_setup(void* arg)
+{
+    lv_obj_t *label = NULL;
+        BootGroup = xEventGroupCreate();
+
+    UI_HW_Init();
+    if(lvgl_port_lock(0))
+    {
+        label = lv_label_create(lv_screen_active());
+        lv_label_set_text(label, "Initializing...");
+        lv_obj_set_width(label, 90);
+        lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+        lvgl_port_unlock();
+    }
+    indev_init();
+    // xEventGroupWaitBits(BootGroup, ADS1115_INIT | PWM_INIT, pdTRUE, pdTRUE, portMAX_DELAY);
+    if(lvgl_port_lock(0))
+    {
+        lv_obj_delete(label);
+        lvgl_port_unlock();
+    }
+    
+    home_page_init();
+    xTaskCreate(value_update_task, "update value", 4096, NULL, 5, NULL);
+    vTaskDelete(NULL);
+}
+
 void UI_Init(void)
 {
-    UI_HW_Init();
-    indev_init();
-    home_page_init();
+    xTaskCreate(ui_setup, "UIBOOT", 4096, NULL, 5, NULL);
 }

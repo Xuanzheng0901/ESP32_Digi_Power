@@ -11,6 +11,10 @@
 #include "esp_lvgl_port.h"
 #include "esp_log.h"
 #include "stdio.h"
+#include "ADCDetect.h"
+
+#define PWM_INIT      1ULL << 0
+#define ADS1115_INIT  1ULL << 1
 
 #define OLED_SCL 13
 #define OLED_SDA 14
@@ -18,9 +22,11 @@
 #define OLED_DC  47
 #define OLED_CS  48
 
-#define KNOB_A   1
-#define KNOB_B   2
+#define KNOB_A   2
+#define KNOB_B   1
 #define BTN_IO   0
+
+#include "PIDCtrl.h"
 
 // 动画配置结构
 typedef struct
