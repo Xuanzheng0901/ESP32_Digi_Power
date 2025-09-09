@@ -6,8 +6,8 @@
 #include "freertos/task.h"
 
 #define LEDC_DUTY_MAX  (1 << LEDC_TIMER_11_BIT)
+static const char* TAG = "PID";
 
-static const char *TAG_OUT = "PID";
 static QueueHandle_t pid_set_queue = NULL;
 static pid_ctrl_block_handle_t pid_handle = NULL;
 
@@ -41,7 +41,7 @@ static inline uint32_t adc_raw_to_mV(int16_t raw)
 static void control_task(void *arg)
 {
     static int16_t forward_duty = 0;       // 前馈占空比
-    static uint32_t exact_voltage_mV;
+    // static uint32_t exact_voltage_mV;
     static uint32_t set_buf;
     static float slope = 0.053f;           // dx/dy 斜率(duty/mV)
     static uint32_t target_voltage_mV = 0; // 默认 0V,不启动
@@ -50,26 +50,39 @@ static void control_task(void *arg)
     {
         if(pdPASS == xQueueReceive(pid_set_queue, &set_buf, 0))
         {
+            // ESP_LOGI(TAG, "Got pidset:%ld", set_buf);
+            if (set_buf == target_voltage_mV)
+                continue;
             target_voltage_mV = set_buf;
-
+            if(target_voltage_mV < 600) 
+                target_voltage_mV = 0;
             forward_duty = calc_forward_duty(set_buf);
             slope = calc_slope(set_buf);
             pid_reset_ctrl_block(pid_handle);
             set_pwm_duty(VSET_CHN, forward_duty);
+            vTaskDelay(pdMS_TO_TICKS(20));
             continue;
         }
-        if(target_voltage_mV <= 600) continue;
+        if(target_voltage_mV <= 600)
+        {
+            vTaskDelay(pdMS_TO_TICKS(20));
+            continue;
+        }
+            
 
-        int16_t ADS1115_read_buf = ADS1115_read_channel(0);
-        exact_voltage_mV = adc_raw_to_mV(ADS1115_read_buf);
+        double exact_voltage_mV = ADS1115_read_channel(0) * 1000.0;
+        // ESP_LOGI(TAG, "exact: %.2lf, target: %ld ", exact_voltage_mV, target_voltage_mV);
+        // exact_voltage_mV = adc_raw_to_mV(ADS1115_read_buf);
         int32_t err_mV = (int32_t)target_voltage_mV - (int32_t)exact_voltage_mV;
 
         pid_compute(pid_handle, (float)err_mV, &pid_calc_result_mV);
+        // ESP_LOGI(TAG, "err: %lf, result: %d", err_mV, pid_calc_result_mV);
 
         // 合成并限幅
         int duty = forward_duty + (int)(pid_calc_result_mV * slope);
         if (duty < 0) duty = 0;
         if (duty > LEDC_DUTY_MAX) duty = LEDC_DUTY_MAX;
+        // ESP_LOGI(TAG, "new duty: %ld", duty);
         set_pwm_duty(VSET_CHN, duty);
 
         vTaskDelay(pdMS_TO_TICKS(20));
@@ -86,9 +99,9 @@ void pid_ctrl_init(void)
 {
     pid_ctrl_config_t pid_cfg = {
         .init_param = {
-            .kp = 2.0f,
-            .ki = 0.6f,
-            .kd = 0.2f,
+            .kp = 0.3f,
+            .ki = 0.4f,
+            .kd = 0.5f,
             .max_output = 6000.0f,   // mV
             .min_output = -6000.0f,  // mV
             .max_integral = 3000.0f, // mV
@@ -100,5 +113,5 @@ void pid_ctrl_init(void)
     pid_set_queue = xQueueCreate(8, sizeof(uint32_t));
     xTaskCreate(control_task, "PIDControl", 4096, NULL, 5, NULL);
     pid_set_voltage(0);
-    ESP_LOGI(TAG_OUT, "PID started");
+    ESP_LOGI(TAG, "PID started");
 }
