@@ -7,8 +7,8 @@
 #define VSET_IO 9
 #define ISET_IO 10
 
-#define VSET_CHN 0
-#define ISET_CHN 1
+#define VSET_CHN 1
+#define ISET_CHN 2
 
 void pwm_init(void);
 void set_pwm_duty(uint8_t channel, int32_t duty);
